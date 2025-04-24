@@ -29,7 +29,7 @@ view the Statistics of Current Placement Drive.
 
 ## Installation and Project Startup Guide
 
-Please refer to these links and make sure you have Python, Flask and Postgres installed and working properly on your machine:
+Please refer to these links and make sure you have Python, Flask and MySQL installed and working properly on your machine:
 
 * https://linuxize.com/post/how-to-install-flask-on-ubuntu-20-04/
 * https://www.digitalocean.com/community/tutorials/how-to-use-a-postgresql-database-in-a-flask-application
@@ -48,7 +48,7 @@ To run this project type:
   export FLASK_ENV=development
 ```
 ```bash
-  export DB_USERNAME="sammy"
+  export DB_USERNAME="root"
 ```
 Username might vary from user to user so remember you Username.
 ```bash
