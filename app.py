@@ -2,7 +2,7 @@ from flask import Flask, request, session, redirect, url_for, render_template, f
 from flask_session import Session
 from flask_mail import Mail, Message
 import os
-import mysql.connector
+import mysql.connector  # ✅ switched from psycopg2 to mysql.connector
 import re
 import time
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,13 +13,12 @@ import json
 import random
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
+# Load environment variables from .env file (optional but recommended)
 load_dotenv()
 
 app = Flask(__name__)
 
-# Flask Session & Mail config
-app.config["SESSION_PERMANENT"] = False
+# Flask Session & Mail configapp.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 app.config['MAIL_SERVER'] = 'smtp.gmail.com'
 app.config['MAIL_PORT'] = 465
@@ -31,17 +30,15 @@ mail = Mail(app)
 
 # ✅ Secret Key from .env
 app.secret_key = os.getenv("SECRET_KEY", "fallback-secret-key")
-cache.init_app(app=app, config={"CACHE_TYPE": "SimpleCache"})
-Session(app)
 
-# ✅ MySQL Database config using dotenv
+# MySQL Database config using dotenv
 DB_NAME = os.getenv("DB_NAME", "flask_db")
 DB_USER = os.getenv("DB_USERNAME", "root")
 DB_PASS = os.getenv("DB_PASSWORD", "Webpass@123")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = int(os.getenv("DB_PORT", 3307))
 
-# ✅ MySQL Connection
+# MySQL Connection
 conn = mysql.connector.connect(
     host=DB_HOST,
     database=DB_NAME,
@@ -49,9 +46,10 @@ conn = mysql.connector.connect(
     password=DB_PASS,
     port=DB_PORT
 )
+print("Connected to the database!")
 
-# Use conn.cursor() as needed
 
+Session(app)
 
 # You can now use `conn.cursor()` as before
 
@@ -232,7 +230,7 @@ def home():
 def login():
     #if session.get("username") == None:
      #  return "hello"
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = conn.cursor(dictionary=True) 
 
     # Check if "username" and "password" POST requests exist (user submitted form)
     if request.method == 'POST' and 'username' in request.form and 'password' in request.form:
@@ -252,6 +250,7 @@ def login():
             if check_password_hash(password_rs, password):
                 # Create session data, we can access this data in other routes
                 session['loggedin'] = True
+                session.permanent = True
                 #session['id'] = account['id']
                 session['username'] = account['username']
                 # Redirect to home page
@@ -270,7 +269,7 @@ def login():
 
 @app.route('/loginadmin/', methods=['GET', 'POST'])
 def loginadmin():
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cursor = conn.cursor(dictionary=True) 
     # Check if "username" and "password" POST requests exist (user submitted form)
     if request.method == 'POST' and 'username' in request.form and 'password' in request.form:
         username = request.form['username']
@@ -289,6 +288,7 @@ def loginadmin():
             if check_password_hash(password_rs, password):
                 # Create session data, we can access this data in other routes
                 session['loggedin'] = True
+                session.permanent = True
                 #session['id'] = account['id']
                 session['username'] = account['username']
                 # Redirect to home page
@@ -305,13 +305,12 @@ def loginadmin():
 
 @app.route('/delete/<string:id>', methods = ['POST','GET'])
 def delete_student(id):
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-
-    cur.execute('DELETE FROM job WHERE job_id = %s',
+    cursor = conn.cursor(dictionary=True) 
+    cursor.execute('DELETE FROM job WHERE job_id = %s',
                 (id,))
-    cur.execute('DELETE FROM fulltime WHERE job_id = %s',
+    cursor.execute('DELETE FROM fulltime WHERE job_id = %s',
                 (id,))
-    cur.execute('DELETE FROM internship WHERE job_id = %s',
+    cursor.execute('DELETE FROM internship WHERE job_id = %s',
                 (id,))
     conn.commit()
     return redirect(url_for('index'))
@@ -322,7 +321,7 @@ def delete_student(id):
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cursor = conn.cursor(dictionary=True)
 
     # Check if "username", "password" and "email" POST requests exist (user submitted form)
     if request.method == 'POST' and 'username' in request.form and 'password' in request.form and 'email' in request.form:
@@ -382,23 +381,22 @@ def logoutAdmin():
    # Redirect to login page
    return redirect(url_for('loginadmin'))
 
-
-
-
-
 @app.route('/profile')
 def profile():
-    cursor = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    if session.get("username") is None:
+        return redirect(url_for('login'))
 
-    # Check if user is loggedin
-    if 'loggedin' in session:
-        cursor.execute('SELECT * FROM users WHERE id = %s', [session['id']])
-        account = cursor.fetchone()
-        # Show the profile page with account info
-        return render_template('profile.html', account=account)
-    # User is not loggedin redirect to login page
-    return redirect(url_for('login'))
+    # Create cursor
+    cur = conn.cursor(dictionary=True)
 
+    # Fetch account details based on the logged-in user's username
+    cur.execute('SELECT * FROM users WHERE username = %s', (session['username'],))
+    account = cur.fetchone()
+
+    if account is None:
+        return redirect(url_for('login'))  # If no account found, redirect to login
+
+    return render_template('profile.html', account=account)
 
 
 
@@ -420,35 +418,44 @@ def adminHome():
 
 @app.route('/db/')
 def index():
-    if session.get("username") == None:
-       return redirect(url_for('loginadmin'))
+    if session.get("username") is None:
+        return redirect(url_for('loginadmin'))
 
-    #conn = get_db_connection()
-    conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-    cur = conn.cursor()
-    cur.execute("SELECT 1")
+    cursor = conn.cursor(dictionary=True)
 
-    cur.execute('SELECT * FROM Student;')
-    students = cur.fetchall()
-    cur.execute('SELECT * FROM UG;')
-    ugs = cur.fetchall()
-    cur.execute('SELECT * FROM PG;')
-    pgs = cur.fetchall()
-    cur.execute('SELECT * FROM job;')
-    job = cur.fetchall()
-    cur.execute('SELECT * FROM fulltime;')
-    fulltime = cur.fetchall()
-    cur.execute('SELECT * FROM internship;')
-    intern = cur.fetchall()
-    cur.execute('SELECT * FROM applied;')
-    applied = cur.fetchall()
+    cursor.execute('SELECT * FROM Student;')
+    students = cursor.fetchall()
 
+    cursor.execute('SELECT * FROM UG;')
+    ugs = cursor.fetchall()
 
-    cur.close()
+    cursor.execute('SELECT * FROM PG;')
+    pgs = cursor.fetchall()
 
-    return render_template('index.html', students=students, ugs=ugs, pgs=pgs,job=job, fulltime=fulltime, intern=intern, applied=applied)
+    cursor.execute('SELECT * FROM job;')
+    job = cursor.fetchall()
 
+    cursor.execute('SELECT * FROM fulltime;')
+    fulltime = cursor.fetchall()
 
+    cursor.execute('SELECT * FROM internship;')
+    intern = cursor.fetchall()
+
+    cursor.execute('SELECT * FROM applied;')
+    applied = cursor.fetchall()
+
+    cursor.close()
+
+    return render_template(
+        'index.html',
+        students=students,
+        ugs=ugs,
+        pgs=pgs,
+        job=job,
+        fulltime=fulltime,
+        intern=intern,
+        applied=applied
+    )
 
 
 
@@ -456,103 +463,89 @@ def index():
 
 @app.route('/create/', methods=('GET', 'POST'))
 def create():
-
-    if session.get("username") == None:
-       return redirect(url_for('login'))
+    if session.get("username") is None:
+        return redirect(url_for('login'))
 
     if request.method == 'POST':
-
-        regno = request.form['regno']
-        fname = request.form['fname']
-        lname = request.form['lname']
-        year = time.strptime(request.form['year'],"%Y-%m-%d")
-
-        email = request.form['email']
-        phone = request.form['phone']
-        address = request.form['address']
-        gender = request.form['gender']
-
-        typee = request.form['type']
-        cgpa = request.form['cgpa']
-        fa = request.form['fa']
-        sem = request.form['cursem']
-
-
-        #conn = get_db_connection()
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
-        cur = conn.cursor()
-        cur.execute("SELECT 1")
-
         try:
-          cur.execute('INSERT INTO Student (regNo, firstName, lastName, dob, email, phoneNo, address, gender, type, cgpa, fa)' 'values (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)',
-            (regno,
-             fname,lname,str(year[0])+'-'+str(year[1])+'-'+str(year[2]),email,
-             phone,address,gender,
-             typee,cgpa,fa)
+            regno = request.form['regno']
+            fname = request.form['fname']
+            lname = request.form['lname']
+            dob_raw = request.form['year']
+            dob = time.strptime(dob_raw, "%Y-%m-%d")
+            dob_formatted = f"{dob.tm_year}-{dob.tm_mon:02d}-{dob.tm_mday:02d}"
+
+            email = request.form['email']
+            phone = request.form['phone']
+            address = request.form['address']
+            gender = request.form['gender']
+            typee = request.form['type']
+            cgpa = request.form['cgpa']
+            fa = request.form['fa']
+            sem = request.form['cursem']
+
+            cursor = conn.cursor(dictionary=True)
+
+            # Insert into Student
+            cursor.execute(
+                '''INSERT INTO Student (regNo, firstName, lastName, dob, email, phoneNo, address, gender, type, cgpa, fa)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
+                (regno, fname, lname, dob_formatted, email, phone, address, gender, typee, cgpa, fa)
             )
-          cur.execute('INSERT INTO Applied (regno, companies)' 'values (%s, %s)',
-            (regno,"")
+
+            # Insert into Applied
+            cursor.execute(
+                'INSERT INTO Applied (regno, companies) VALUES (%s, %s)',
+                (regno, "")
             )
 
-          if typee=='UG':
-           ch1=regno[0]
-           ch2=regno[-2]
-           ch3=regno[-1]
-           ch1=ch1+ch2+ch3
-           branch=""
-           if ch1=="BME":
-              branch="Bachelor of Technology, Mechanical Engineering"
-           elif ch1=="BCE":
-              branch="Bachelor of Technology, Chemical Engineering"
-           elif ch1=="BCS":
-              branch="Bachelor of Technology, Computer Science Engineering"
-           elif ch1=="BEE":
-              branch="Bachelor of Technology, Electrical Engineering"
-           elif ch1=="BEC":
-              branch="Bachelor of Technology, Electronics and Communication Engineering"
+            # Determine branch
+            ch1 = regno[0]
+            ch2 = regno[-2]
+            ch3 = regno[-1]
+            branch_code = ch1 + ch2 + ch3
 
-           cur.execute('INSERT INTO UG (regNo, branch, semester)' 'values (%s, %s, %s)',
-		        (regno, branch, sem
-		        )
-		      )
+            branch_map = {
+                # UG Branches
+                "BME": "Bachelor of Technology, Mechanical Engineering",
+                "BCE": "Bachelor of Technology, Chemical Engineering",
+                "BCS": "Bachelor of Technology, Computer Science Engineering",
+                "BEE": "Bachelor of Technology, Electrical Engineering",
+                "BEC": "Bachelor of Technology, Electronics and Communication Engineering",
 
-          else:
-           ch1=regno[0]
-           ch2=regno[-2]
-           ch3=regno[-1]
-           ch1=ch1+ch2+ch3
-           branch=""
+                # PG Branches
+                "MCA": "Master in Computer Applications",
+                "MME": "Master of Technology, Mechanical Engineering",
+                "MCE": "Master of Technology, Chemical Engineering",
+                "MCS": "Master of Technology, Computer Science Engineering",
+                "MEE": "Master of Technology, Electrical Engineering",
+                "MEC": "Master of Technology, Electronics and Communication Engineering"
+            }
 
-           if ch1=="MCA":
-              branch="Master in Computer Applications"
-           elif ch1=="MME":
-              branch="Master of Technology, Mechanical Engineering"
-           elif ch1=="MCE":
-              branch="Master of Technology, Chemical Engineering"
-           elif ch1=="MCS":
-              branch="Master of Technology, Computer Science Engineering"
-           elif ch1=="MEE":
-              branch="Master of Technology, Electrical Engineering"
-           elif ch1=="MEC":
-              branch="Master of Technology, Electronics and Communication Engineering"
+            branch = branch_map.get(branch_code, "Unknown Branch")
 
-           cur.execute('INSERT INTO PG (regNo, branch, semester)' 'values (%s, %s, %s)',
-                 (regno, branch, sem
-                 )
-               )
+            if typee == 'UG':
+                cursor.execute(
+                    'INSERT INTO UG (regNo, branch, semester) VALUES (%s, %s, %s)',
+                    (regno, branch, sem)
+                )
+            else:
+                cursor.execute(
+                    'INSERT INTO PG (regNo, branch, semester) VALUES (%s, %s, %s)',
+                    (regno, branch, sem)
+                )
 
+            conn.commit()
+            cursor.close()
+            flash("Student registered successfully!")
+            return render_template('home.html')
 
-          conn.commit()
-          cur.close()
-          return render_template('home.html')
-        except:
-          flash("Already exist User!!!")
+        except mysql.connector.Error as err:
+            flash(f"MySQL Error: {err}")
+        except Exception as e:
+            flash("Already existing user or invalid input!")
 
     return render_template('create.html')
-
-
-
-
 
 @app.route('/my-link/')
 def my_link():
@@ -562,7 +555,7 @@ def my_link():
    regno=str(regno)
 
    #conn = get_db_connection()
-   conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+   cursor = conn.cursor(dictionary=True)
    cur = conn.cursor()
    cur.execute("SELECT 1")
 
@@ -591,41 +584,32 @@ def my_link():
 
 @app.route('/view/')
 def view():
-    if session.get("username") == None:
-       return redirect(url_for('login'))
+    if session.get("username") is None:
+        return redirect(url_for('login'))
 
-    cur = conn.cursor()
-    cur.execute("SELECT 1")
+    cur = conn.cursor(buffered=True)  # Added buffered=True to handle multiple queries safely
 
-    cur.execute('SELECT * from Student WHERE regNo= (%s)', (str(session['username']),))
-    x=cur.fetchall()
+    # Fetch details of the student using their regNo (username)
+    cur.execute('SELECT * FROM Student WHERE regNo = %s', (session['username'],))
+    details = cur.fetchall()
 
-    #return x
-
-    if len(x)==0:
+    # If no record found, redirect to 'create' route
+    if len(details) == 0:
         return redirect(url_for('create'))
 
+    # Fetch the student type (UG/PG)
+    cur.execute('SELECT type FROM Student WHERE regNo = %s', (session['username'],))
+    typ = cur.fetchone()[0]  # Fetch the first result and get the type
 
-
-    cur.execute('SELECT * from Student WHERE regNo = (%s)',(session['username'],))
-    details=cur.fetchall()
-
-    cur.execute('SELECT type from Student WHERE regNo = (%s)',(session['username'],))
-    typee=cur.fetchall()
-    #return typee
-    typ=typee[0][0]
-
-    if typ=='UG':
-       cur.execute('SELECT * from UG WHERE regNo = (%s)',(session['username'],))
-       ugdetails=cur.fetchall()
-       return render_template('view.html',details=details,ugdetails=ugdetails)
+    # Handle UG or PG details based on the type
+    if typ == 'UG':
+        cur.execute('SELECT * FROM UG WHERE regNo = %s', (session['username'],))
+        ugdetails = cur.fetchall()
+        return render_template('view.html', details=details, ugdetails=ugdetails)
     else:
-       cur.execute('SELECT * from PG WHERE regNo = (%s)',(session['username'],))
-       pgdetails=cur.fetchall()
-       return render_template('view.html',details=details,pgdetails=pgdetails)
-
-
-
+        cur.execute('SELECT * FROM PG WHERE regNo = %s', (session['username'],))
+        pgdetails = cur.fetchall()
+        return render_template('view.html', details=details, pgdetails=pgdetails)
 
 @app.route('/edit/')
 def edit():
@@ -672,7 +656,7 @@ def update():
         typ=typee[0][0]
 
         #conn = get_db_connection()
-        conn.set_isolation_level(psycopg2.extensions.ISOLATION_LEVEL_AUTOCOMMIT)
+        cursor = conn.cursor(dictionary=True)
         cur = conn.cursor()
         cur.execute("SELECT 1")
 
@@ -894,21 +878,30 @@ def applied(id):
 
 @app.route('/go_to_view_jobs')
 def go_to_view_jobs():
-    cur.execute('SELECT companies from applied WHERE regno = %s',(session['username'],))
-    companies=cur.fetchall()
+    cursor = conn.cursor(dictionary=True)
 
-    #return str(companies[0][0])
+    # Fetch the companies from the 'applied' table where regno matches the session's username
+    cursor.execute('SELECT companies FROM applied WHERE regno = %s', (session['username'],))
+    companies = cursor.fetchall()
 
-    complist=companies[0][0].split(' ')
+    if companies:
+        # Extract the list of companies by splitting the stored string
+        complist = companies[0]['companies'].split('#')  # Assuming companies are stored as a # separated string
 
-    return redirect(url_for('go_to_view_jobs'))
+        # Pass the list of companies to the template to render them
+        return render_template('view_jobs.html', companies=complist)
+    else:
+        flash("No applied companies found.")
+        return redirect(url_for('home'))  # Redirect to home or another relevant page
 
+    cursor.close()
 
 
 
 @app.route('/viewstat')
 def viewstat():
-    cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+    cur = conn.cursor(dictionary=True)
+
     s = "SELECT Student.regNo, Student.firstName, Student.lastName, job.job_Id, job.company, job.type, job.position,fulltime.package FROM job,Student,stats,fulltime where Student.regNo=stats.regNo and fulltime.job_Id=stats.job_Id and job.job_Id=stats.job_Id;"
     cur.execute(s) # Execute the SQL
     list_users = cur.fetchall()
@@ -966,7 +959,8 @@ def add_stats():
     if request.method == 'POST':
         session['job_id'] = request.form['job_Id']
         session['regno'] = request.form['regNo']
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur = conn.cursor(dictionary=True)
+
         cur.execute('SELECT regNo FROM Student WHERE regNo = %s',
                       (session['regno'],))
         ab=cur.fetchone()
@@ -1005,6 +999,6 @@ def delete_stat(id):
     conn.commit()
     flash('Student Removed Successfully')
     return redirect(url_for('viewstat'))
-if __name__ == "__main__":
-    app.run(debug=True)  # or use app.run(debug=True, host="0.0.0.0") to allow external access
+if __name__ == '__main__':
+    app.run(debug=True)
 
