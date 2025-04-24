@@ -1,0 +1,197 @@
+{% extends "layout.html" %}
+
+{% block body %}
+
+<style>
+
+        .form-body{
+            display:flex;
+            flex-direction:column;
+            margin-top:-5%;
+        }
+
+
+
+	.form-content label, .was-validated .form-check-input:invalid~.form-check-label, .was-validated .form-check-input:valid~.form-check-label,.valid-feedback,.invalid-feedback{
+	    color: #777676;
+	    font-size:17px;
+	}
+
+	.form-content input[type=text],.form-content input[type=number],.form-content select {
+	    width: 50%;
+	    height:3em;
+	    padding: 9px 20px;
+	    text-align: left;
+	    border: 0;
+	    outline: 0;
+	    border-radius: 6px;
+	    background-color:#F9F9F8 ;
+	    font-size: 17px;
+	    font-weight: 300;
+	    color: #8D8D8D;
+	    -webkit-transition: all 0.3s ease;
+	    transition: all 0.3s ease;
+	    margin-top: 10px;
+	}
+
+	.form-group{
+	    background-color:#fff;
+	}
+
+
+	.btn-primary{
+	    background-color: #6C757D;
+	    outline: none;
+	    border: 0px;
+	    box-shadow: none;
+
+	}
+
+	.btn-primary:hover, .btn-primary:focus, .btn-primary:active{
+	    background-color: #808080;
+	    outline: none !important;
+	    border: none !important;
+	     box-shadow: none;
+	}
+
+
+	.invalid-feedback{
+	    color: #ff606e;
+	}
+
+	.valid-feedback{
+	   color: #2acc80;
+	}
+
+	.navbar-nav{
+
+	}
+
+        .back{
+           height:45px;
+           float:right;
+
+        }
+
+
+</style>
+<div class="form-body">
+ <div class="row">
+   <div class="form-holder">
+     <div class="form-content" style="width:60%;">
+       <div class="form-items" style=" margin-top:5rem;">
+
+          <form action="{{url_for('add_job')}}" method="POST" class="was-validated" on method="post">
+            <h3 class="header">Add Job Details</h3>
+
+             <div class="col-md-4">
+	      {% with messages = get_flashed_messages()  %}
+		  {% if messages %}
+		  {% for message in messages %}
+
+		   <div class="alert alert-success alert-dismissible">
+		      <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
+		      <strong>{{ message }}</strong>
+		   </div>
+		 {% endfor %}
+		 {% endif %}
+              {% endwith %}
+
+	     </div>
+
+            <div class="col-md-12">
+               <input type="text" class="form-content" name="job_Id" placeholder="Enter Job-ID" minlength='6' maxlength='6' required>
+                <div class="valid-feedback">Job-ID field is valid!</div>
+                <div class="invalid-feedback">Job-ID field cannot be blank!</div>
+             </div>
+
+            <div class="col-md-12">
+               <input type="text" class="form-content" name="Company" minlength='3' maxlength='25' placeholder="Enter Company Name" required>
+                <div class="valid-feedback">Company Name field is valid!</div>
+                <div class="invalid-feedback">Company Name field cannot be blank!</div>
+            </div>
+
+            <div class="form-group">
+               <select width=100 style="width: 97%; height:40px; display:flex; margin-left:auto; margin-right:auto; font-weight:400; border-radius:5px; font-size:16px; -moz-appearance: none;-webkit-appearance: none;background-color:#9E9E9E;color:#fff;"    name="Position" required>
+                 <option value='sde'>Software Developer</option>
+                 <option value='software-engineer'>Software Engineer</option>
+                 <option value='data-analyst'>Data Analyst</option>
+                 <option value='data-engineer'>Data Engineer</option>
+                 <option value='data-scientist'>Data Scientist</option>
+               </select>
+             </div>
+
+
+
+             <div class="form-group" >
+
+                <label class="container">Bachelor of Technology, Electrical Engineering
+            		  <input type="checkbox" name="Eligibility" value= "BTech-EE">
+            		  <span class="checkmark"></span>
+            		</label>
+
+            		<label class="container">Bachelor of Technology, Electronics and Communication Engineering
+            		  <input type="checkbox" name="Eligibility" value="BTech-ECE">
+            		  <span class="checkmark"></span>
+            		</label>
+
+            		<label class="container">Bachelor of Technology, Computer Science Engineering
+            		  <input type="checkbox" name="Eligibility" value="BTech-CS">
+            		  <span class="checkmark"></span>
+            		</label>
+
+
+            		<label class="container">Master in Computer Applications
+            		  <input type="checkbox" name="Eligibility" value="MCA">
+            		  <span class="checkmark"></span>
+            		</label>
+
+            		<label class="container">Master of Technology, Computer Science Engineering
+            		  <input type="checkbox" name="Eligibility" value="MTech-CS">
+            		  <span class="checkmark"></span>
+            		</label>
+
+
+
+
+              </div>
+
+
+              <div class="col-md-12">
+                  <input class="form-content"  type="number" name="CGPA"  placeholder="Enter your CGPA" step="0.01" required>
+                  <div class="valid-feedback">CGPA field is valid!</div>
+                  <div class="invalid-feedback">CGPA field cannot be blank!</div>
+              </div>
+
+
+              <div class="col-md-12">
+                  <input type="text" class="form-content" name="Location" placeholder="Location" minlength='2' maxlength='30' required>
+                  <div class="valid-feedback">Location field is valid!</div>
+                  <div class="invalid-feedback">Location field cannot be blank!</div>
+              </div>
+
+
+              <div class="form-group">
+                   <select width=100 style="width: 97%; height:40px; display:flex; margin-left:auto; margin-right:auto; font-weight:400; border-radius:5px; font-size:16px; -moz-appearance: none;-webkit-appearance: none;background-color:#9E9E9E;color:#fff;"   name="type" required>
+                   <option value='Fulltime'>Full Time</option>
+                   <option value='internship'>Internship</option>
+                   </select>
+              </div>
+
+
+              <button class="btn btn-primary btn" style="text-align:center; margin-left:1%;width:100px; height:40px;">
+                Proceed
+              </button>
+              <a link href="/adminhome"><button type="button" class="back btn btn-dark">Back to Home</button></a>
+
+
+
+       </form>
+     </div>
+    </div>
+   </div>
+  </div>
+</div>
+
+
+{% endblock %}
